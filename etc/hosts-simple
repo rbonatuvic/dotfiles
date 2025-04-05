@@ -1,0 +1,30 @@
+127.0.0.1	localhost
+127.0.0.1	dione
+
+127.0.0.1  	local.uvic.ca
+127.0.0.1  	democasclientlocal.uvic.ca
+127.0.0.1  	privacyidealocal.uvic.ca
+127.0.0.1  	idplocal.uvic.a
+127.0.0.1  	splocal.uvic.ca
+127.0.0.1  	shibapp1.uvic.ca
+127.0.0.1  	shibapprands.local.uvic.ca
+127.0.0.1  	shibapprandsstu.local.uvic.ca
+127.0.0.1  	shibappsirtfi.local.uvic.ca
+
+
+#142.104.32.232  local.uvic.ca
+#142.104.32.232  democasclientlocal.uvic.ca
+#142.104.32.232  privacyidealocal.uvic.ca
+#142.104.32.232  idplocal.uvic.a
+#142.104.32.232  splocal.uvic.ca
+#142.104.32.232  shibapp1.uvic.ca
+#142.104.32.232  shibapprands.local.uvic.ca
+#142.104.32.232  shibapprandsstu.local.uvic.ca
+#142.104.32.232  shibappsirtfi.local.uvic.ca
+
+# The following lines are desirable for IPv6 capable hosts
+::1     ip6-localhost ip6-loopback
+fe00::0 ip6-localnet
+ff00::0 ip6-mcastprefix
+ff02::1 ip6-allnodes
+ff02::2 ip6-allrouters
