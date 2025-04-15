@@ -1,0 +1,3 @@
+-- git plugin
+-- need yazi version 25.4.4
+-- require("git"):setup()
