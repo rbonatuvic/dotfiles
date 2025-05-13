@@ -1,10 +1,12 @@
 127.0.0.1	localhost
 127.0.0.1	dione
 
+agama.comp.uvic.ca  syslog
+
 127.0.0.1  	local.uvic.ca
 127.0.0.1  	democasclientlocal.uvic.ca
 127.0.0.1  	privacyidealocal.uvic.ca
-127.0.0.1  	idplocal.uvic.a
+127.0.0.1  	idplocal.uvic.ca
 127.0.0.1  	splocal.uvic.ca
 127.0.0.1  	shibapp1.uvic.ca
 127.0.0.1  	shibapprands.local.uvic.ca
