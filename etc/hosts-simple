@@ -4,6 +4,7 @@
 agama.comp.uvic.ca  syslog
 
 127.0.0.1  	local.uvic.ca
+127.0.0.1  	ldaplocal.uvic.ca
 127.0.0.1  	democasclientlocal.uvic.ca
 127.0.0.1  	privacyidealocal.uvic.ca
 127.0.0.1  	idplocal.uvic.ca
