@@ -1,0 +1,11 @@
+# AI solution 20251019
+
+[Unit]
+Description=CUPS Scheduler
+
+[Socket]
+ListenStream=/run/cups/cups.sock
+ListenStream=631
+
+[Install]
+WantedBy=sockets.target

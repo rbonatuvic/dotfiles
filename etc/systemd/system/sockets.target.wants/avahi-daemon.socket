@@ -1,0 +1,18 @@
+# AI solution 20251019
+
+[Unit]
+Description=Avahi mDNS/DNS-SD Stack Activation Socket
+Documentation=man:avahi-daemon(8)
+ConditionPathExists=!/etc/avahi/disable-user-service-publishing
+
+[Socket]
+ListenStream=/run/avahi-daemon/socket
+ListenDatagram=/run/avahi-daemon/socket
+ListenStream=/var/run/avahi-daemon/socket
+ListenDatagram=/var/run/avahi-daemon/socket
+SocketMode=0666
+PassCredentials=yes
+PassSecurity=yes
+
+[Install]
+WantedBy=sockets.target
