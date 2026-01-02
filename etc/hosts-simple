@@ -11,6 +11,7 @@
 127.0.0.1  	shibapprands.local.uvic.ca
 127.0.0.1  	shibapprandsstu.local.uvic.ca
 127.0.0.1  	shibappsirtfi.local.uvic.ca
+127.0.0.1  	loadtest.test
 
 192.168.1.70    jupiter
 192.168.1.82    MacBook-Air-3
