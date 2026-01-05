@@ -7,3 +7,7 @@
 # rbon special requirements
 # -----------------------------------------------------
 export PATH="$HOME/bin/:$PATH"
+
+alias la=ls
+
+alias vi='$EDITOR'
