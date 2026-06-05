@@ -1,2 +1,2 @@
 #!/bin/bash
-theme_name="ML4W Glass Center"
+theme_name="ML4W Glass Center Custom"

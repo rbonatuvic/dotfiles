@@ -1,0 +1,6 @@
+#
+# allow regular user access to USB device
+#
+# https://askubuntu.com/questions/978552/how-do-i-make-libusb-work-as-non-root
+
+SUBSYSTEM=="usb", ATTRS{idVendor}=="1050", ATTRS{idProduct}=="0407", MODE="0660", GROUP="plugdev"

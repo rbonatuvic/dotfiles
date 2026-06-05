@@ -1,10 +1,12 @@
  # git plugin
 [[plugin.prepend_fetchers]]
 id   = "git"
-name = "*"
+url = "*"
+group = "git"
 run  = "git"
 
 [[plugin.prepend_fetchers]]
 id   = "git"
-name = "*/"
+url = "*/"
+group = "git"
 run  = "git"
