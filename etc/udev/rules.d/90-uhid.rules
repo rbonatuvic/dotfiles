@@ -1,0 +1,5 @@
+# use fingerprint scanner as FIDO2 device
+#
+KERNEL=="uhid", GROUP="uhid-users", MODE="0660"
+# or
+#KERNEL=="uhid", SUBSYSTEM=="misc", GROUP="uhid-users", MODE="0660"
