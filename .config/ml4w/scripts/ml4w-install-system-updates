@@ -8,13 +8,7 @@
 
 # Check if command exists
 _checkCommandExists() {
-    cmd="$1"
-    if ! command -v "$cmd" >/dev/null; then
-        echo 1
-        return
-    fi
-    echo 0
-    return
+    command -v "$1" &> /dev/null
 }
 
 _isInstalled() {
@@ -64,27 +58,33 @@ fi
 # ----------------------------------------------------- 
 
 # Arch
-if [[ $(_checkCommandExists "pacman") == 0 ]]; then
+if _checkCommandExists "pacman"; then
 
     yay_installed="false"
     paru_installed="false"
-    if [[ $(_checkCommandExists "yay") == 0 ]]; then
+    if _checkCommandExists "yay"; then
         yay_installed="true"
     fi
-    if [[ $(_checkCommandExists "paru") == 0 ]]; then
+    if _checkCommandExists "paru"; then
         paru_installed="true"
     fi
     if [[ $yay_installed == "true" ]] && [[ $paru_installed == "false" ]]; then
         yay
     elif [[ $yay_installed == "false" ]] && [[ $paru_installed == "true" ]]; then
-        paru -Syu --noconfirm
+        paru -Syu
     else
-        yay
+        sudo pacman -Syu
     fi
 
 # Fedora
-elif [[ $(_checkCommandExists "dnf") == 0 ]]; then
+elif _checkCommandExists "dnf"; then
     sudo dnf upgrade
+# openSUSE
+elif _checkCommandExists "zypper"; then
+    sudo zypper dup
+# Ubuntu
+elif _checkCommandExists "apt"; then
+    sudo apt update && sudo apt upgrade
 else
     echo ":: ERROR - Platform not supported"
     echo "Press [ENTER] to close."
@@ -93,12 +93,18 @@ fi
 echo
 
 # Flatpak
-echo ":: Searching for Flatpak updates..."
-flatpak update
-echo
+if _checkCommandExists "flatpak"; then
+    echo ":: Searching for Flatpak updates..."
+    flatpak update
+    echo
+fi
 
 # Reload Waybar
 pkill -RTMIN+1 waybar
+
+# Refresh Quickshell Statusbar
+qs ipc call updates refresh
+# qs ipc call updates reset
 
 # Finishing
 echo ":: Update complete! Press [ENTER] to close."

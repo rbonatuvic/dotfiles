@@ -1,24 +1,26 @@
 import Quickshell
 import Quickshell.Wayland
-import Quickshell.Hyprland 
+import Quickshell.Hyprland
 import Quickshell.Io
-import Quickshell.Services.Mpris 
+import Quickshell.Services.Mpris
 import QtQuick
 import QtQuick.Layouts
 import QtQuick.Controls
+import QtQuick.Effects
 import qs.CustomTheme
 
 PanelWindow {
     id: root
-    
+
     // --- WAYLAND CONFIGURATION ---
     WlrLayershell.layer: WlrLayer.Overlay
     exclusionMode: WlrLayershell.Ignore
-    
-    implicitWidth: 380
+
+    implicitWidth: 420 // 380 + 40
     color: "transparent"
 
     property bool isHyprlandSettingsInstalled: false
+    property bool isHyprsunsetInstalled: false
 
     anchors {
         right: true
@@ -26,9 +28,9 @@ PanelWindow {
         bottom: true
     }
 
-    margins { 
-        top: 87
-        bottom: 20
+    margins {
+        top: 52
+        bottom: 0
     }
 
     // --- CLICK OUTSIDE TO CLOSE (Native Hyprland) ---
@@ -55,34 +57,45 @@ PanelWindow {
     // --- ANIMATION LOGIC ---
     property bool isOpen: false
     visible: isOpen || slideAnim.running
-    
+
     margins { right: root.currentMargin }
-    property real currentMargin: isOpen ? 20 : -450 
+    property real currentMargin: isOpen ? 0 : -470
 
     Behavior on currentMargin {
         NumberAnimation {
             id: slideAnim
             duration: 350
-            easing.type: Easing.OutQuint 
+            easing.type: Easing.OutQuint
         }
     }
 
     IpcHandler {
         target: "sidebar"
         function toggle(): void { root.isOpen = !root.isOpen }
-        function open(): void { root.isOpen = true }   
-        function close(): void { root.isOpen = false } 
+        function open(): void { root.isOpen = true }
+        function close(): void { root.isOpen = false }
+        function isOpen(): bool { return root.isOpen }
     }
 
-    // --- Check if flatpak is installed when window opens ---
     Process {
-        command: ["bash", "-c", Quickshell.env("HOME") + "/.config/ml4w/scripts/ml4w-flatpak-installed com.ml4w.hyprlandsettings"]
+        command: ["bash", "-c", Quickshell.env("HOME") + "/.config/ml4w/scripts/ml4w-command-exists hyprmod"]
         running: root.visible
-        
+
         stdout: StdioCollector {
             onStreamFinished: {
                 console.log(this.text.trim())
                 root.isHyprlandSettingsInstalled = (this.text.trim() === "0")
+            }
+        }
+    }
+
+    Process {
+        command: ["bash", "-c", Quickshell.env("HOME") + "/.config/ml4w/scripts/ml4w-command-exists hyprsunset"]
+        running: root.visible
+
+        stdout: StdioCollector {
+            onStreamFinished: {
+                root.isHyprsunsetInstalled = (this.text.trim() === "0")
             }
         }
     }
@@ -94,7 +107,7 @@ PanelWindow {
             text: control.text
             font.family: Theme.fontFamily
             font.pixelSize: 14
-            color: control.highlighted ? Theme.background : Theme.primary 
+            color: control.highlighted ? Theme.background : Theme.primary
             verticalAlignment: Text.AlignVCenter
         }
         background: Rectangle {
@@ -148,27 +161,60 @@ PanelWindow {
     }
 
     component SettingsWheel: Button {
-        implicitWidth: 28  
+        implicitWidth: 28
         implicitHeight: 28
-        text: "" 
-        font.family: "monospace"
         background: Rectangle { color: "transparent" }
-        contentItem: Text { 
-            text: parent.text; color: Theme.primary; font.pixelSize: 18; 
-            verticalAlignment: Text.AlignVCenter; horizontalAlignment: Text.AlignHCenter
+        contentItem: Item {
+            Image {
+                anchors.centerIn: parent
+                source: "../shared/icons/settings.svg"
+                width: 18
+                height: 18
+                sourceSize.width: 18
+                sourceSize.height: 18
+                fillMode: Image.PreserveAspectFit
+                layer.enabled: true
+                layer.effect: MultiEffect {
+                    colorization: 1.0
+                    colorizationColor: Theme.primary
+                }
+            }
         }
     }
 
+    // Supports text glyphs (iconTxt) for MPRIS controls and SVG files (iconSrc) for sidebar icons
     component ActionIcon: Button {
         property string iconTxt: ""
-        implicitWidth: 28  
+        property string iconSrc: ""
+        implicitWidth: 28
         implicitHeight: 28
-        text: iconTxt
-        font.family: "monospace"
         background: Rectangle { color: "transparent" }
-        contentItem: Text { 
-            text: parent.text; color: Theme.primary; font.pixelSize: 18; 
-            verticalAlignment: Text.AlignVCenter; horizontalAlignment: Text.AlignHCenter
+        contentItem: Item {
+            Text {
+                anchors.centerIn: parent
+                text: iconTxt
+                visible: iconSrc === ""
+                color: Theme.primary
+                font.family: "monospace"
+                font.pixelSize: 18
+                verticalAlignment: Text.AlignVCenter
+                horizontalAlignment: Text.AlignHCenter
+            }
+            Image {
+                anchors.centerIn: parent
+                source: iconSrc
+                width: 18
+                height: 18
+                sourceSize.width: 18
+                sourceSize.height: 18
+                visible: iconSrc !== ""
+                fillMode: Image.PreserveAspectFit
+                layer.enabled: iconSrc !== ""
+                layer.effect: MultiEffect {
+                    colorization: 1.0
+                    colorizationColor: Theme.primary
+                }
+            }
         }
     }
 
@@ -177,14 +223,36 @@ PanelWindow {
     // ==========================================
     Item {
         anchors.fill: parent
+        anchors.margins: 20
+
+        RectangularShadow {
+            id: shadow
+            anchors.fill: mainBgRect
+            radius: mainBgRect.radius
+            blur: 15
+            color: Qt.rgba(Theme.shadow.r, Theme.shadow.g, Theme.shadow.b, 0.4)
+        }
 
         Rectangle {
+            id: mainBgRect
             anchors.fill: parent
-            color: Theme.background
-            border.color: Theme.primary
-            border.width: 2
             radius: 10
             opacity: 0.95 // Only the background is transparent
+
+            // Gradient border (outer)
+            gradient: Gradient {
+                orientation: Gradient.Vertical
+                GradientStop { position: 0.0; color: Theme.primary }
+                GradientStop { position: 1.0; color: Theme.on_primary }
+            }
+
+            // Background fill (inner), inset by the border thickness
+            Rectangle {
+                anchors.fill: parent
+                anchors.margins: 2
+                radius: parent.radius - anchors.margins
+                color: Theme.background
+            }
         }
 
         ColumnLayout {
@@ -192,35 +260,44 @@ PanelWindow {
             anchors.margins: 20
             spacing: 20
 
-            // --- TOP BAR (Light/Dark, Screenshot & Color Picker) ---
+            // --- TOP BAR (Light/Dark, Screenshot, Color Picker & Keybinds) ---
             RowLayout {
                 Layout.fillWidth: true
                 spacing: 10
 
                 ActionIcon {
-                    iconTxt: "󰔎"
+                    iconSrc: "../shared/icons/darklight.svg"
                     onClicked: {
                         Quickshell.execDetached(["bash", "-c", Quickshell.env("HOME") + "/.config/ml4w/scripts/ml4w-toggle-theme"])
                     }
                 }
 
                 ActionIcon {
-                    iconTxt: "" 
+                    iconSrc: "../shared/icons/picker.svg"
                     onClicked: {
                         root.isOpen = false
                         Quickshell.execDetached(["bash", "-c", Quickshell.env("HOME") + "/.config/ml4w/settings/hyprpicker.sh"])
                     }
                 }
 
-                ActionIcon { 
-                    iconTxt: ""
+                ActionIcon {
+                    iconSrc: "../shared/icons/screenshot.svg"
                     onClicked: {
                         root.isOpen = false
                         Quickshell.execDetached(["bash", "-c", Quickshell.env("HOME") + "/.config/hypr/scripts/screenshot.sh"])
                     }
                 }
 
-                Item { Layout.fillWidth: true } 
+                Item { Layout.fillWidth: true }
+
+                ML4WButton {
+                    text: "Keybinds"
+                    Layout.fillWidth: false
+                    onClicked: {
+                        root.isOpen = false
+                        Quickshell.execDetached(["bash", "-c", Quickshell.env("HOME") + "/.config/hypr/scripts/keybindings.sh"])
+                    }
+                }
             }
 
             Rectangle { Layout.fillWidth: true; implicitHeight: 1; color: Theme.primary; opacity: 0.3 }
@@ -229,27 +306,28 @@ PanelWindow {
             RowLayout {
                 Layout.fillWidth: true
                 spacing: 10
-                
-                ML4WButton { 
+
+                ML4WButton {
                     text: "Welcome"
                     onClicked: {
                         root.isOpen = false
                         Quickshell.execDetached(["bash", "-c", "qs ipc call welcome toggle"])
                     }
                 }
-                ML4WButton { 
+                ML4WButton {
                     text: "Settings"
                     onClicked: {
                         root.isOpen = false
+                        // Quickshell.execDetached(["kitty", "--class", "dotfiles-floating", "-e", "ml4w-dotfiles-settings", "com.ml4w.dotfiles"])
                         Quickshell.execDetached(["bash", "-c", "qs -p " + Quickshell.env("HOME") + "/.local/share/ml4w-dotfiles-settings/quickshell ipc call settings toggle"])
                     }
                 }
-                ML4WButton { 
-                    text: "Hyprland"
-                    visible: root.isHyprlandSettingsInstalled 
+                ML4WButton {
+                    text: "HyprMod"
+                    visible: root.isHyprlandSettingsInstalled
                     onClicked: {
                         root.isOpen = false
-                        Quickshell.execDetached(["bash", "-c", "flatpak run com.ml4w.hyprlandsettings"])
+                        Quickshell.execDetached(["hyprmod"])
                     }
                 }
             }
@@ -258,7 +336,7 @@ PanelWindow {
 
             // --- SCROLLABLE CONTENT ---
             ScrollView {
-                id: scrollView 
+                id: scrollView
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 contentHeight: mainContentColumn.implicitHeight // Tells ScrollView how tall the inner content truly is
@@ -288,12 +366,19 @@ PanelWindow {
                             Layout.fillWidth: true
                             spacing: 15
 
-                            Text {
-                                text: "" // Speaker icon
-                                color: Theme.primary
-                                font.family: "monospace"
-                                font.pixelSize: 18
+                            Image {
+                                source: "../shared/icons/volume.svg"
                                 Layout.alignment: Qt.AlignVCenter
+                                Layout.preferredWidth: 20
+                                Layout.preferredHeight: 20
+                                sourceSize.width: 20
+                                sourceSize.height: 20
+                                fillMode: Image.PreserveAspectFit
+                                layer.enabled: true
+                                layer.effect: MultiEffect {
+                                    colorization: 1.0
+                                    colorizationColor: Theme.primary
+                                }
                             }
 
                             Slider {
@@ -356,12 +441,19 @@ PanelWindow {
                             Layout.fillWidth: true
                             spacing: 15
 
-                            Text {
-                                text: "" // Sun/Brightness icon
-                                color: Theme.primary
-                                font.family: "monospace"
-                                font.pixelSize: 18
+                            Image {
+                                source: "../shared/icons/brightness.svg"
                                 Layout.alignment: Qt.AlignVCenter
+                                Layout.preferredWidth: 20
+                                Layout.preferredHeight: 20
+                                sourceSize.width: 20
+                                sourceSize.height: 20
+                                fillMode: Image.PreserveAspectFit
+                                layer.enabled: true
+                                layer.effect: MultiEffect {
+                                    colorization: 1.0
+                                    colorizationColor: Theme.primary
+                                }
                             }
 
                             Slider {
@@ -418,6 +510,58 @@ PanelWindow {
                                 }
                             }
                         }
+
+                        // BLUE LIGHT FILTER (HYPRSUNSET) TOGGLE
+                        // Temporary status switch mirroring the SUPER+SHIFT+H
+                        // keybinding: it just starts/kills hyprsunset, nothing
+                        // is persisted, so the state is gone after a restart.
+                        RowLayout {
+                            Layout.fillWidth: true
+                            visible: root.isHyprsunsetInstalled
+
+                            Text {
+                                text: "Blue Light Filter"
+                                color: Theme.primary
+                                font.family: Theme.fontFamily
+                                font.pixelSize: 16
+                            }
+                            Item { Layout.fillWidth: true }
+                            ML4WSwitch {
+                                id: hyprsunsetSwitch
+                                property bool ready: false
+                                // The running process is the only state there is.
+                                Process {
+                                    id: hyprsunsetStateProc
+                                    command: ["bash", "-c", "pgrep -x hyprsunset > /dev/null && echo 1 || echo 0"]
+                                    stdout: StdioCollector {
+                                        onStreamFinished: {
+                                            hyprsunsetSwitch.checked = (this.text.trim() === "1")
+                                            hyprsunsetSwitch.ready = true
+                                        }
+                                    }
+                                }
+                                // Re-read while the sidebar is open so the switch
+                                // tracks external toggles (the keybinding) live.
+                                Timer {
+                                    interval: 1000
+                                    repeat: true
+                                    running: root.isOpen
+                                    triggeredOnStart: true
+                                    onTriggered: hyprsunsetStateProc.running = true
+                                }
+                                onClicked: {
+                                    if (!ready) return;
+                                    // Absolute command matching the switch's
+                                    // post-click position instead of a blind
+                                    // toggle, so it can't get out of sync.
+                                    let cmd = checked
+                                        ? "pgrep -x hyprsunset > /dev/null || setsid -f hyprsunset > /dev/null 2>&1"
+                                        : "pkill -x hyprsunset"
+                                    Quickshell.execDetached(["bash", "-c", cmd])
+                                }
+                            }
+                            Item { implicitWidth: 28 }
+                        }
                     }
 
                     Rectangle { Layout.fillWidth: true; implicitHeight: 1; color: Theme.primary; opacity: 0.3; Layout.topMargin: 5; Layout.bottomMargin: 5 }
@@ -426,14 +570,14 @@ PanelWindow {
                     ListView {
                         id: mprisListView
                         Layout.fillWidth: true
-                        
+
                         // Dynamically scale based on players, up to 210px (max 2 players)
                         Layout.preferredHeight: contentHeight
                         Layout.maximumHeight: 210
-                        
+
                         spacing: 10
                         clip: true
-                        
+
                         model: Mpris.players.values
                         visible: Mpris.players.values.length > 0
 
@@ -456,7 +600,7 @@ PanelWindow {
 
                             width: mprisListView.width - 16
                             implicitHeight: 100
-                            
+
                             radius: 10
                             color: Theme.background
                             border.color: Theme.primary
@@ -477,7 +621,7 @@ PanelWindow {
                                     border.color: Theme.primary
                                     border.width: 1
                                     clip: true
-                                    
+
                                     Image {
                                         anchors.fill: parent
                                         source: player.trackArtUrl ? player.trackArtUrl : ""
@@ -524,35 +668,35 @@ PanelWindow {
                                         opacity: 0.8
                                     }
 
-                                    Item { Layout.fillHeight: true } 
+                                    Item { Layout.fillHeight: true }
 
                                     RowLayout {
                                         Layout.fillWidth: true
                                         spacing: 15
-                                        
-                                        Item { Layout.fillWidth: true } 
+
+                                        Item { Layout.fillWidth: true }
 
                                         ActionIcon {
-                                            iconTxt: "󰒮" 
+                                            iconTxt: "󰒮"
                                             implicitWidth: 32
                                             implicitHeight: 32
                                             onClicked: player.previous()
                                         }
 
                                         ActionIcon {
-                                            iconTxt: player.isPlaying ? "󰏤" : "󰐊" 
+                                            iconTxt: player.isPlaying ? "󰏤" : "󰐊"
                                             implicitWidth: 32
                                             implicitHeight: 32
-                                            onClicked: player.isPlaying = !player.isPlaying 
+                                            onClicked: player.isPlaying = !player.isPlaying
                                         }
 
                                         ActionIcon {
-                                            iconTxt: "󰒭" 
+                                            iconTxt: "󰒭"
                                             implicitWidth: 32
                                             implicitHeight: 32
                                             onClicked: player.next()
                                         }
-                                        
+
                                         Item { Layout.fillWidth: true }
                                     }
                                 }
@@ -560,82 +704,308 @@ PanelWindow {
                         }
                     }
 
-                    Rectangle { 
-                        Layout.fillWidth: true; 
-                        implicitHeight: 1; 
-                        color: Theme.primary; 
-                        opacity: 0.3; 
-                        Layout.topMargin: 5; 
+                    Rectangle {
+                        Layout.fillWidth: true;
+                        implicitHeight: 1;
+                        color: Theme.primary;
+                        opacity: 0.3;
+                        Layout.topMargin: 5;
                         Layout.bottomMargin: 5;
-                        visible: Mpris.players.values.length > 0 
+                        visible: Mpris.players.values.length > 0
                     }
 
-                    // --- WAYBAR ---
+                    // --- STATUS BAR ENGINE ---
+                    // Select which bar ML4W OS uses. The choice is persisted to
+                    // ~/.config/ml4w/settings/statusbar (read by everything else
+                    // here and by the toggle/reload scripts). On = Quickshell,
+                    // Off = Waybar. Flipping it also applies the change live:
+                    // it shows the selected bar and hides the other.
                     RowLayout {
                         Layout.fillWidth: true
-                        Text { text: "Waybar"; color: Theme.on_background; font.family: Theme.fontFamily; font.pixelSize: 16 }
-                        Item { Layout.fillWidth: true } 
-                        ML4WSwitch { 
-                            id: waybarSwitch
+                        Text { text: "Status Bar Engine"; color: Theme.primary; font.family: Theme.fontFamily; font.pixelSize: 16 }
+                        Item { Layout.fillWidth: true }
+                        Text {
+                            text: engineSwitch.checked ? "Quickshell" : "Waybar"
+                            color: Theme.primary
+                            opacity: 0.7
+                            font.family: Theme.fontFamily
+                            font.pixelSize: 14
+                            Layout.rightMargin: 8
+                        }
+                        ML4WSwitch {
+                            id: engineSwitch
                             property bool ready: false
+                            // Read the configured engine (defaults to waybar).
                             Process {
-                                command: ["bash", "-c", "test -f ~/.config/ml4w/settings/waybar-disabled && echo 0 || echo 1"]
-                                running: root.isOpen 
+                                command: ["bash", "-c", "sb=$(tr -d '[:space:]' < ~/.config/ml4w/settings/statusbar 2>/dev/null); [ \"$sb\" = quickshell ] && echo 1 || echo 0"]
+                                running: root.isOpen
                                 stdout: StdioCollector {
                                     onStreamFinished: {
-                                        console.log("Test for Waybar: " + this.text.trim())
-                                        waybarSwitch.checked = (this.text.trim() === "1")
-                                        waybarSwitch.ready = true
+                                        engineSwitch.checked = (this.text.trim() === "1")
+                                        engineSwitch.ready = true
                                     }
                                 }
                             }
                             onClicked: {
                                 if (!ready) return;
-                                let fileCmd = checked 
-                                ? "rm -f ~/.config/ml4w/settings/waybar-disabled"
-                                : "touch ~/.config/ml4w/settings/waybar-disabled"       
-                                console.log("Waybar cmd: " + fileCmd)
-                                Quickshell.execDetached(["bash", "-c", fileCmd + ";" + Quickshell.env("HOME") + "/.config/waybar/launch.sh"])
+                                // Persist the selection, then apply it live:
+                                // enable the chosen bar and disable the other.
+                                let cmd = checked
+                                    ? "echo quickshell > ~/.config/ml4w/settings/statusbar; qs ipc call statusbar enable; touch ~/.config/ml4w/settings/waybar-disabled; " + Quickshell.env("HOME") + "/.config/waybar/launch.sh"
+                                    : "echo waybar > ~/.config/ml4w/settings/statusbar; rm -f ~/.config/ml4w/settings/waybar-disabled; " + Quickshell.env("HOME") + "/.config/waybar/launch.sh; qs ipc call statusbar disable"
+                                console.log("Status Bar Engine cmd: " + cmd)
+                                Quickshell.execDetached(["bash", "-c", cmd])
+                            }
+                        }
+                        Item { implicitWidth: 28 }
+                    }
+
+                    // --- STATUS BAR ---
+                    // Single toggle for whichever bar ML4W OS is configured to
+                    // use (read from ~/.config/ml4w/settings/statusbar): either
+                    // waybar or the quickshell statusbar. The scripts handle the
+                    // per-bar specifics; this row only reflects/flips the state.
+                    RowLayout {
+                        Layout.fillWidth: true
+                        Text { text: "Status Bar"; color: Theme.primary; font.family: Theme.fontFamily; font.pixelSize: 16 }
+                        Item { Layout.fillWidth: true }
+                        ML4WSwitch {
+                            id: statusbarSwitch
+                            property bool ready: false
+                            property string activeBar: "waybar"
+                            // Read the active bar and its current on/off state in
+                            // one shot ("<bar> <0|1>"): for quickshell the
+                            // "enabled" flag in its config.json, for
+                            // waybar the presence of the waybar-disabled marker.
+                            Process {
+                                id: statusbarStateProc
+                                command: ["bash", "-c", "sb=$(tr -d '[:space:]' < ~/.config/ml4w/settings/statusbar 2>/dev/null); [ -n \"$sb\" ] || sb=waybar; if [ \"$sb\" = quickshell ]; then grep -q '\"enabled\"[[:space:]]*:[[:space:]]*false' ~/.config/ml4w-statusbar/config.json 2>/dev/null && s=0 || s=1; else test -f ~/.config/ml4w/settings/waybar-disabled && s=0 || s=1; fi; echo \"$sb $s\""]
+                                stdout: StdioCollector {
+                                    onStreamFinished: {
+                                        let parts = this.text.trim().split(" ")
+                                        statusbarSwitch.activeBar = parts[0]
+                                        statusbarSwitch.checked = (parts[1] === "1")
+                                        statusbarSwitch.ready = true
+                                    }
+                                }
+                            }
+                            // Re-read the state periodically while the sidebar is
+                            // open so the switch tracks external toggles (e.g. the
+                            // SUPER+CTRL+B keybinding) live, not just on reopen.
+                            // triggeredOnStart gives the initial read on open.
+                            Timer {
+                                interval: 1000
+                                repeat: true
+                                running: root.isOpen
+                                triggeredOnStart: true
+                                onTriggered: statusbarStateProc.running = true
+                            }
+                            onClicked: {
+                                if (!ready) return;
+                                // Send an absolute command matching the switch's
+                                // post-click position (rather than a blind toggle)
+                                // so the switch always reflects the real bar state,
+                                // even if the bar was toggled elsewhere meanwhile.
+                                let cmd = activeBar === "quickshell"
+                                    ? (checked ? "qs ipc call statusbar enable"
+                                               : "qs ipc call statusbar disable")
+                                    : (checked ? "rm -f ~/.config/ml4w/settings/waybar-disabled; " + Quickshell.env("HOME") + "/.config/waybar/launch.sh"
+                                               : "touch ~/.config/ml4w/settings/waybar-disabled; " + Quickshell.env("HOME") + "/.config/waybar/launch.sh")
+                                console.log("Status Bar cmd: " + cmd)
+                                Quickshell.execDetached(["bash", "-c", cmd])
                             }
                         }
 
                         SettingsWheel {
-                            onClicked: waybarMenu.open()
+                            onClicked: statusbarMenu.open()
                             Menu {
-                                id: waybarMenu
+                                id: statusbarMenu
                                 y: parent.height
                                 implicitWidth: 220
                                 padding: 8
-                                
+
                                 background: Rectangle { color: Theme.background; border.color: Theme.primary; border.width: 1; radius: 8 }
-                                ML4WMenuItem { text: "Select Waybar Theme"; onClicked: {
+                                ML4WMenuItem { text: "Reload Status Bar"; onClicked: {
+                                        // Reads the settings file and reloads the
+                                        // matching bar.
+                                        Quickshell.execDetached(["bash", "-c", "~/.config/ml4w/scripts/ml4w-reload-statusbar"])
+                                    }
+                                }
+                                ML4WMenuItem {
+                                    text: "Select Waybar Theme"
+                                    visible: statusbarSwitch.activeBar === "waybar"
+                                    height: visible ? implicitHeight : 0
+                                    onClicked: {
                                         Quickshell.execDetached(["bash", "-c", Quickshell.env("HOME") + "/.config/waybar/themeswitcher.sh"])
                                     }
                                 }
-                                ML4WMenuItem { text: "Edit Quicklinks"; onClicked: {
+                                ML4WMenuItem {
+                                    text: "Edit Quicklinks"
+                                    visible: statusbarSwitch.activeBar === "waybar"
+                                    height: visible ? implicitHeight : 0
+                                    onClicked: {
                                         root.isOpen = false
                                         Quickshell.execDetached(["gnome-text-editor", Quickshell.env("HOME") + "/.config/ml4w/settings/waybar-quicklinks.json"])
                                     }
                                 }
-                                ML4WMenuItem { text: "Reload Waybar"; onClicked: {
-                                        Quickshell.execDetached(["bash", "-c", Quickshell.env("HOME") + "/.config/waybar/launch.sh"])
-                                    } 
+                                ML4WMenuItem {
+                                    text: "Edit configuration"
+                                    // The statusbar's own settings file, created
+                                    // on its first start, is meant to be edited
+                                    // directly.
+                                    visible: statusbarSwitch.activeBar === "quickshell"
+                                    height: visible ? implicitHeight : 0
+                                    onClicked: {
+                                        root.isOpen = false
+                                        Quickshell.execDetached(["bash", "-c", "~/.config/ml4w/settings/editor.sh ~/.config/ml4w-statusbar/config.json"])
+                                    }
                                 }
                             }
                         }
                     }
 
+                    // --- STATUSBAR ALWAYS EXPANDED (Quickshell) ---
+                    RowLayout {
+                        Layout.fillWidth: true
+                        Text { text: "Statusbar Expanded"; color: Theme.primary; font.family: Theme.fontFamily; font.pixelSize: 16 }
+                        Item { Layout.fillWidth: true }
+                        ML4WSwitch {
+                            id: statusbarExpandedSwitch
+                            property bool ready: false
+                            // Read the current state from the "alwaysExpanded" flag
+                            // in the statusbar's settings file. The test is for the
+                            // flag being *false* so a missing file or flag counts as
+                            // on, matching the statusbar's own default — the file
+                            // starts out empty and only carries what was changed.
+                            Process {
+                                command: ["bash", "-c", "grep -q '\"alwaysExpanded\"[[:space:]]*:[[:space:]]*false' ~/.config/ml4w-statusbar/config.json 2>/dev/null && echo 0 || echo 1"]
+                                running: root.isOpen
+                                stdout: StdioCollector {
+                                    onStreamFinished: {
+                                        console.log("Test for Statusbar Expanded: " + this.text.trim())
+                                        statusbarExpandedSwitch.checked = (this.text.trim() === "1")
+                                        statusbarExpandedSwitch.ready = true
+                                    }
+                                }
+                            }
+                            onClicked: {
+                                if (!ready) return;
+                                // The statusbar owns the file write; just tell it
+                                // the new state via IPC. `checked` already
+                                // reflects the post-click position.
+                                let ipcCmd = checked
+                                ? "qs ipc call statusbar alwaysExpand"
+                                : "qs ipc call statusbar autoCollapse"
+                                console.log("Statusbar Expanded cmd: " + ipcCmd)
+                                Quickshell.execDetached(["bash", "-c", ipcCmd])
+                            }
+                        }
+                        Item { implicitWidth: 28 }
+                    }
+
+                    // --- STATUSBAR AUTOHIDE (Quickshell) ---
+                    RowLayout {
+                        Layout.fillWidth: true
+                        Text { text: "Statusbar Autohide"; color: Theme.primary; font.family: Theme.fontFamily; font.pixelSize: 16 }
+                        Item { Layout.fillWidth: true }
+                        ML4WSwitch {
+                            id: statusbarAutohideSwitch
+                            property bool ready: false
+                            // Read the current state from the "autohide" flag in
+                            // the statusbar's settings file. A missing file or flag
+                            // counts as off, matching the statusbar's own default.
+                            Process {
+                                id: statusbarAutohideProc
+                                command: ["bash", "-c", "grep -q '\"autohide\"[[:space:]]*:[[:space:]]*true' ~/.config/ml4w-statusbar/config.json 2>/dev/null && echo 1 || echo 0"]
+                                stdout: StdioCollector {
+                                    onStreamFinished: {
+                                        console.log("Test for Statusbar Autohide: " + this.text.trim())
+                                        statusbarAutohideSwitch.checked = (this.text.trim() === "1")
+                                        statusbarAutohideSwitch.ready = true
+                                    }
+                                }
+                            }
+                            // Polled like the Dock switch below, so the
+                            // state tracks changes made outside the sidebar (the
+                            // SUPER + ALT + B keybinding).
+                            Timer {
+                                interval: 1000
+                                repeat: true
+                                running: root.isOpen
+                                triggeredOnStart: true
+                                onTriggered: statusbarAutohideProc.running = true
+                            }
+                            onClicked: {
+                                if (!ready) return;
+                                // The statusbar owns the file write; just tell it
+                                // the new state via IPC. `checked` already
+                                // reflects the post-click position.
+                                let ipcCmd = checked
+                                ? "qs ipc call statusbar autohideOn"
+                                : "qs ipc call statusbar autohideOff"
+                                console.log("Statusbar Autohide cmd: " + ipcCmd)
+                                Quickshell.execDetached(["bash", "-c", ipcCmd])
+                            }
+                        }
+                        Item { implicitWidth: 28 }
+                    }
+
+                    // --- LAUNCHER ---
+                    // Select which launcher ML4W OS uses. The choice is persisted
+                    // to ~/.config/ml4w/settings/launcher (read by ml4w-launcher).
+                    // On = Walker, Off = Rofi.
+                    RowLayout {
+                        Layout.fillWidth: true
+                        Text { text: "Launcher"; color: Theme.primary; font.family: Theme.fontFamily; font.pixelSize: 16 }
+                        Item { Layout.fillWidth: true }
+                        Text {
+                            text: launcherSwitch.checked ? "Walker" : "Rofi"
+                            color: Theme.primary
+                            opacity: 0.7
+                            font.family: Theme.fontFamily
+                            font.pixelSize: 14
+                            Layout.rightMargin: 8
+                        }
+                        ML4WSwitch {
+                            id: launcherSwitch
+                            property bool ready: false
+                            // Read the configured launcher (defaults to rofi).
+                            Process {
+                                command: ["bash", "-c", "l=$(tr -d '[:space:]' < ~/.config/ml4w/settings/launcher 2>/dev/null); [ \"$l\" = walker ] && echo 1 || echo 0"]
+                                running: root.isOpen
+                                stdout: StdioCollector {
+                                    onStreamFinished: {
+                                        launcherSwitch.checked = (this.text.trim() === "1")
+                                        launcherSwitch.ready = true
+                                    }
+                                }
+                            }
+                            onClicked: {
+                                if (!ready) return;
+                                let cmd = checked
+                                    ? "echo walker > ~/.config/ml4w/settings/launcher"
+                                    : "echo rofi > ~/.config/ml4w/settings/launcher"
+                                console.log("Launcher cmd: " + cmd)
+                                Quickshell.execDetached(["bash", "-c", cmd])
+                            }
+                        }
+                        Item { implicitWidth: 28 }
+                    }
+
                     // --- DOCK ---
                     RowLayout {
                         Layout.fillWidth: true
-                        Text { text: "Dock"; color: Theme.on_background; font.family: Theme.fontFamily; font.pixelSize: 16 }
+                        Text { text: "Dock"; color: Theme.primary; font.family: Theme.fontFamily; font.pixelSize: 16 }
                         Item { Layout.fillWidth: true }
-                        ML4WSwitch { 
+                        ML4WSwitch {
                             id: dockSwitch
                             property bool ready: false
+                            // Read the current state from the "enabled" flag in
+                            // the dock's settings file. A missing file or flag
+                            // counts as on, matching the dock's own default.
                             Process {
-                                command: ["bash", "-c", "test -f ~/.config/ml4w/settings/dock-disabled && echo 0 || echo 1"]
-                                running: root.isOpen 
+                                id: dockStateProc
+                                command: ["bash", "-c", "grep -q '\"enabled\"[[:space:]]*:[[:space:]]*false' ~/.config/ml4w-dock/config.json 2>/dev/null && echo 0 || echo 1"]
                                 stdout: StdioCollector {
                                     onStreamFinished: {
                                         console.log("Test for Dock: " + this.text.trim())
@@ -644,29 +1014,79 @@ PanelWindow {
                                     }
                                 }
                             }
+                            // Re-read the state periodically while the sidebar is
+                            // open so the switch tracks external toggles (e.g. the
+                            // SUPER+CTRL+D keybinding) live, not just on reopen.
+                            // triggeredOnStart gives the initial read on open.
+                            Timer {
+                                interval: 1000
+                                repeat: true
+                                running: root.isOpen
+                                triggeredOnStart: true
+                                onTriggered: dockStateProc.running = true
+                            }
                             onClicked: {
                                 if (!ready) return;
-                                let fileCmd = checked 
-                                ? "rm -f ~/.config/ml4w/settings/dock-disabled"
-                                : "touch ~/.config/ml4w/settings/dock-disabled"
-                                console.log("Dock cmd: " + fileCmd)
-                                Quickshell.execDetached(["bash", "-c", fileCmd + "; " + Quickshell.env("HOME") + "/.config/nwg-dock-hyprland/launch.sh"])
+                                // The dock owns the file write; just tell it the
+                                // new state via IPC. `checked` already reflects
+                                // the post-click position.
+                                let ipcCmd = checked
+                                ? "ml4w-dock enable"
+                                : "ml4w-dock disable"
+                                console.log("Dock cmd: " + ipcCmd)
+                                Quickshell.execDetached(["bash", "-c", ipcCmd])
                             }
                         }
-                        Item { implicitWidth: 28 } 
+
+                        SettingsWheel {
+                            onClicked: dockMenu.open()
+                            Menu {
+                                id: dockMenu
+                                y: parent.height
+                                implicitWidth: 220
+                                padding: 8
+
+                                background: Rectangle { color: Theme.background; border.color: Theme.primary; border.width: 1; radius: 8 }
+                                ML4WMenuItem { text: "Reload Dock"; onClicked: {
+                                        // Tells the running dock to re-read its
+                                        // settings files and apply them live.
+                                        Quickshell.execDetached(["bash", "-c", "~/.config/ml4w/scripts/ml4w-reload-dock"])
+                                    }
+                                }
+                                ML4WMenuItem {
+                                    text: "Settings"
+                                    // Opens the dock's own settings dialog
+                                    // (autohide lives there now).
+                                    onClicked: {
+                                        root.isOpen = false
+                                        Quickshell.execDetached(["bash", "-c", "ml4w-dock settings"])
+                                    }
+                                }
+                                ML4WMenuItem {
+                                    text: "Edit configuration"
+                                    // The dock opens its own settings file in
+                                    // dock.editorCommand (xdg-open without one),
+                                    // the same as its menu's entry.
+                                    onClicked: {
+                                        root.isOpen = false
+                                        Quickshell.execDetached(["bash", "-c", "ml4w-dock edit"])
+                                    }
+                                }
+                            }
+                        }
                     }
 
                     // --- GAMEMODE ---
                     RowLayout {
                         Layout.fillWidth: true
-                        Text { text: "Gamemode"; color: Theme.on_background; font.family: Theme.fontFamily; font.pixelSize: 16 }
+                        Text { text: "Gamemode"; color: Theme.primary; font.family: Theme.fontFamily; font.pixelSize: 16 }
                         Item { Layout.fillWidth: true }
-                        ML4WSwitch { 
+                        ML4WSwitch {
                             id: gamemodeSwitch
                             property bool ready: false
                             Process {
                                 command: ["bash", "-c", "test -f ~/.config/ml4w/settings/gamemode-enabled && echo 0 || echo 1"]
-                                running: root.isOpen 
+                                running: root.isOpen
                                 stdout: StdioCollector {
                                     onStreamFinished: {
                                         console.log("Test for Gamemode: " + this.text.trim())
@@ -680,46 +1100,75 @@ PanelWindow {
                                 Quickshell.execDetached(["bash", "-c", Quickshell.env("HOME") + "/.config/hypr/scripts/gamemode.sh"])
                             }
                         }
-                        Item { implicitWidth: 28 } 
+                        Item { implicitWidth: 28 }
                     }
 
-                    // --- SIDEPAD ---
+                    // --- HYPRIDLE ---
                     RowLayout {
                         Layout.fillWidth: true
-                        Text { text: "Sidepad"; color: Theme.on_background; font.family: Theme.fontFamily; font.pixelSize: 16 }
+                        Text { text: "Hypridle"; color: Theme.primary; font.family: Theme.fontFamily; font.pixelSize: 16 }
                         Item { Layout.fillWidth: true }
-                        ML4WSwitch { 
-                            id: sidepadSwitch
+                        ML4WSwitch {
+                            id: hypridleSwitch
+                            property bool ready: false
+                            // Purely a runtime toggle: hypridle is started by
+                            // Hyprland's autostart, so a reboot always brings it
+                            // back. Nothing is persisted here.
+                            Process {
+                                id: hypridleStateProc
+                                command: ["bash", "-c", "pgrep -x hypridle >/dev/null && echo 1 || echo 0"]
+                                stdout: StdioCollector {
+                                    onStreamFinished: {
+                                        console.log("Test for Hypridle: " + this.text.trim())
+                                        hypridleSwitch.checked = (this.text.trim() === "1")
+                                        hypridleSwitch.ready = true
+                                    }
+                                }
+                            }
+                            // Re-read while the sidebar is open so the switch
+                            // tracks external toggles (waybar hypridle module)
+                            // live. triggeredOnStart gives the initial read.
+                            Timer {
+                                interval: 1000
+                                repeat: true
+                                running: root.isOpen
+                                triggeredOnStart: true
+                                onTriggered: hypridleStateProc.running = true
+                            }
                             onClicked: {
-                                if (checked) {
-                                    console.log("Launching sidebar...")
-                                    Quickshell.execDetached(["bash", "-c", Quickshell.env("HOME") + "/.config/ml4w/scripts/ml4w-sidepad --init"])
-                                } else {
-                                    console.log("Stopping sidebar...")
-                                    Quickshell.execDetached(["bash", "-c", Quickshell.env("HOME") + "/.config/ml4w/scripts/ml4w-sidepad --kill"])
-                                }
+                                if (!ready) return;
+                                // Same script waybar uses, so both stay in sync.
+                                Quickshell.execDetached(["bash", "-c", Quickshell.env("HOME") + "/.config/hypr/scripts/hypridle.sh toggle"])
                             }
                         }
-                        SettingsWheel {
-                            onClicked: sidepadMenu.open()
-                            Menu {
-                                id: sidepadMenu
-                                y: parent.height
-                                
-                                implicitWidth: 220
-                                padding: 8
-                                
-                                background: Rectangle { color: Theme.background; border.color: Theme.primary; border.width: 1; radius: 8 }
-                                ML4WMenuItem { text: "Select Sidepad"; onClicked: {
-                                        Quickshell.execDetached(["bash", "-c", Quickshell.env("HOME") + "/.config/ml4w/scripts/ml4w-sidepad --select"])
-                                    } 
-                                }
-                                ML4WMenuItem { text: "Open Sidepad Folder"; onClicked: {
-                                        Quickshell.execDetached(["nautilus", Quickshell.env("HOME") + "/.config/sidepad/pads"])
-                                    } 
+                        Item { implicitWidth: 28 }
+                    }
+
+                    // --- FASTFETCH ---
+                    RowLayout {
+                        Layout.fillWidth: true
+                        Text { text: "Fastfetch"; color: Theme.primary; font.family: Theme.fontFamily; font.pixelSize: 16 }
+                        Item { Layout.fillWidth: true }
+                        ML4WSwitch {
+                            id: fastfetchSwitch
+                            property bool ready: false
+                            Process {
+                                command: ["bash", "-c", "test -f ~/.config/ml4w/settings/hide-fastfetch && echo 1 || echo 0"]
+                                running: root.isOpen
+                                stdout: StdioCollector {
+                                    onStreamFinished: {
+                                        console.log("Test for Fastfetch: " + this.text.trim())
+                                        fastfetchSwitch.checked = (this.text.trim() === "0")
+                                        fastfetchSwitch.ready = true
+                                    }
                                 }
                             }
+                            onClicked: {
+                                if (!ready) return;
+                                Quickshell.execDetached(["bash", "-c", Quickshell.env("HOME") + "/.config/ml4w/scripts/ml4w-toggle-fastfetch"])
+                            }
                         }
+                        Item { implicitWidth: 28 }
                     }
 
                     Rectangle { Layout.fillWidth: true; implicitHeight: 1; color: Theme.primary; opacity: 0.3; Layout.topMargin: 5; Layout.bottomMargin: 5 }
@@ -727,10 +1176,10 @@ PanelWindow {
                     // --- WALLPAPER ---
                     RowLayout {
                         Layout.fillWidth: true
-                        Text { text: "Wallpaper"; color: Theme.on_background; font.family: Theme.fontFamily; font.pixelSize: 16 }
+                        Text { text: "Wallpaper"; color: Theme.primary; font.family: Theme.fontFamily; font.pixelSize: 16 }
                         Item { Layout.fillWidth: true }
-                        ActionIcon { 
-                            iconTxt: ""
+                        ActionIcon {
+                            iconSrc: "../shared/icons/wallpaper.svg"
                             onClicked: {
                                 root.isOpen = false
                                 Quickshell.execDetached(["bash", "-c", Quickshell.env("HOME") + "/.config/ml4w/scripts/ml4w-wallpaper-app"])
@@ -741,29 +1190,22 @@ PanelWindow {
                     // --- THEME ---
                     RowLayout {
                         Layout.fillWidth: true
-                        Text { text: "Theme"; color: Theme.on_background; font.family: Theme.fontFamily; font.pixelSize: 16 }
+                        Text { text: "Theme"; color: Theme.primary; font.family: Theme.fontFamily; font.pixelSize: 16 }
                         Item { Layout.fillWidth: true }
-                        ActionIcon { 
-                            iconTxt: ""
-                            onClicked: {
-                                root.isOpen = false
-                                Quickshell.execDetached(["bash", "-c", Quickshell.env("HOME") + "/.config/ml4w/themes/themes.sh"])
-                            }
-                        }
                         SettingsWheel {
                             onClicked: themeMenu.open()
                             Menu {
                                 id: themeMenu
                                 y: parent.height
-                                
+
                                 implicitWidth: 220
                                 padding: 8
-                                
+
                                 background: Rectangle { color: Theme.background; border.color: Theme.primary; border.width: 1; radius: 8 }
                                 ML4WMenuItem { text: "Set GTK Theme"; onClicked: {
                                         root.isOpen = false
                                         Quickshell.execDetached(["nwg-look"])
-                                    } 
+                                    }
                                 }
                                 ML4WMenuItem { text: "Set QT Theme"; onClicked: {
                                         root.isOpen = false
@@ -773,7 +1215,7 @@ PanelWindow {
                                 ML4WMenuItem { text: "Refresh GTK Theme"; onClicked: {
                                         root.isOpen = false
                                         Quickshell.execDetached(["bash", "-c", Quickshell.env("HOME") + "/.config/hypr/scripts/gtk.sh"])
-                                    } 
+                                    }
                                 }
                             }
                         }

@@ -18,6 +18,15 @@ input_path = '~/.config/matugen/templates/hyprland-colors.conf'
 output_path = '~/.config/hypr/colors.conf'
 post_hook = 'hyprctl reload'
 
+[templates.hyprland-lua]
+input_path = '~/.config/matugen/templates/hyprland-colors.lua'
+output_path = '~/.config/hypr/colors.lua'
+post_hook = 'hyprctl reload'
+
+[templates.hyprtoolkit]
+input_path = '~/.config/matugen/templates/hyprtoolkit-colors.conf'
+output_path = '~/.config/hypr/hyprtoolkit.conf'
+
 [templates.waybar]
 input_path = '~/.config/matugen/templates/colors.css'
 output_path = '~/.config/waybar/colors.css'
@@ -33,6 +42,7 @@ output_path = '~/.config/gtk-3.0/colors.css'
 [templates.gtk4]
 input_path = '~/.config/matugen/templates/gtk-colors.css'
 output_path = '~/.config/gtk-4.0/colors.css'
+post_hook = '~/.config/matugen/post-hook-scripts/gtk-themes-reload.sh'
 
 [templates.pywalfox]
 input_path = '~/.config/matugen/templates/pywalfox-colors.json'
@@ -45,10 +55,6 @@ output_path = '~/.config/swaync/colors.css'
 [templates.walker]
 input_path = '~/.config/matugen/templates/colors.css'
 output_path = '~/.config/walker/colors.css'
-
-[templates.nwgdock]
-input_path = '~/.config/matugen/templates/colors.css'
-output_path = '~/.config/nwg-dock-hyprland/colors.css'
 
 [templates.sequences]
 input_path = '~/.config/matugen/templates/sequences'
@@ -74,9 +80,23 @@ output_path = '~/.config/ml4w/colors/onprimary'
 input_path  = "./templates/colors.json"
 output_path = "~/.local/share/ml4w-dotfiles-settings/colors/colors.json"
 
+# Colors of the ML4W Dock (github.com/mylinuxforwork/ml4w-dock), which reads
+# its own copy so it can also run without the rest of the ML4W shell. It watches the file, so no
+# post_hook is needed. The path is theme.colorsFile in ~/.config/ml4w-dock/config.json.
+[templates.ml4w_dock]
+input_path  = "./templates/colors.json"
+output_path = "~/.config/ml4w-dock/colors.json"
+
+# Colors of the ML4W Power Menu (github.com/mylinuxforwork/ml4w-powermenu), which
+# reads its own copy like the dock. The path is theme.colorsFile in
+# ~/.config/ml4w-powermenu/config.json.
+[templates.ml4w_powermenu]
+input_path  = "./templates/colors.json"
+output_path = "~/.config/ml4w-powermenu/colors.json"
+
 [templates.quickshell_overview]
 input_path  = "./templates/quickshell-overview.qml"
-output_path = "~/.config/quickshell/overview/common/Appearance.colors.qml"
+output_path = "~/.local/share/quickshell-overview/common/Appearance.colors.qml"
 
 [templates.ohmyposh]
 input_path = '~/.config/matugen/templates/ohmyposh-colors.json'

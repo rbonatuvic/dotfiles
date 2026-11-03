@@ -1,4 +1,5 @@
 import Quickshell
+import Quickshell.Hyprland
 import QtQuick
 import QtQuick.Layouts
 import QtQuick.Controls
@@ -15,6 +16,31 @@ FloatingWindow {
     // --- Guard property for the flatpak app ---
     property bool isHyprlandSettingsInstalled: false
 
+    // --- Version read from the shipped version.json ---
+    property string version: ""
+
+    FileView {
+        id: versionFile
+        path: Quickshell.env("HOME") + "/.config/ml4w/version.json"
+        blockLoading: true
+        printErrors: false
+        onLoaded: {
+            try {
+                root.version = JSON.parse(this.text()).Version || ""
+            } catch (e) {
+                root.version = ""
+            }
+        }
+        onLoadFailed: root.version = ""
+    }
+
+    // Re-read version.json every time the window is shown, so an update that
+    // happened while the window was hidden is picked up.
+    onVisibleChanged: {
+        if (root.visible)
+            versionFile.reload()
+    }
+
     IpcHandler {
         target: "welcome"
         function toggle(): void {
@@ -24,7 +50,7 @@ FloatingWindow {
 
     // --- Check if flatpak is installed when window opens ---
     Process {
-        command: ["bash", "-c", Quickshell.env("HOME") + "/.config/ml4w/scripts/ml4w-flatpak-installed com.ml4w.hyprlandsettings"]
+        command: ["bash", "-c", Quickshell.env("HOME") + "/.config/ml4w/scripts/ml4w-command-exists hyprmod"]
         running: root.visible
         
         stdout: StdioCollector {
@@ -96,15 +122,22 @@ FloatingWindow {
                 exit: Transition { NumberAnimation { property: "opacity"; from: 1.0; to: 0.0; duration: 150; easing.type: Easing.InQuad } }
 
                 ML4WMenuItem { 
-                    text: qsTr("Keyboard");
+                    text: qsTr("Input");
                     onClicked: {
-                        Quickshell.execDetached(["gnome-text-editor", Quickshell.env("HOME") + "/.config/hypr/conf/keyboard.conf"])
+                        Quickshell.execDetached(["gnome-text-editor", Quickshell.env("HOME") + "/.config/hypr/input.lua"])
+                    }
+                }
+                ML4WMenuItem { 
+                    text: qsTr("Gestures");
+                    onClicked: {
+                        Quickshell.execDetached(["gnome-text-editor", Quickshell.env("HOME") + "/.config/hypr/gestures.lua"])
                     }
                 }
                 ML4WMenuItem { 
                     text: qsTr("Monitors");
                     onClicked: { 
-                        Quickshell.execDetached(["nwg-displays"])
+                        // Quickshell.execDetached(["gnome-text-editor", Quickshell.env("HOME") + "/.config/hypr/monitors.lua"])
+                        Quickshell.execDetached(["nwg-displays"]) 
                     }
                 }
                 ML4WMenuItem { 
@@ -145,12 +178,12 @@ FloatingWindow {
                     }
                 }
                 ML4WMenuItem { 
-                    text: root.isHyprlandSettingsInstalled ? qsTr("Hyprland Settings") : qsTr("Install Hyprland Settings")
+                    text: root.isHyprlandSettingsInstalled ? qsTr("HyprMod") : qsTr("Install HyprMod")
                     onClicked: { 
                         if (root.isHyprlandSettingsInstalled) {
-                            Quickshell.execDetached(["bash","-c","flatpak run com.ml4w.hyprlandsettings"])
+                            Quickshell.execDetached(["hyprmod"])
                         } else {
-                            Quickshell.execDetached(["kitty", "--class", "dotfiles-floating", "-e", Quickshell.env("HOME") + "/.config/ml4w/scripts/ml4w-install-hyprlandsettings"])
+                            Quickshell.execDetached(["kitty", "--class", "dotfiles-floating", "-e", Quickshell.env("HOME") + "/.config/ml4w/scripts/ml4w-install-hyprmod"])
                         }
                     }
                 }
@@ -194,14 +227,30 @@ FloatingWindow {
                 ML4WMenuItem { 
                     text: qsTr("System Info") 
                     onClicked: { 
-                        Quickshell.execDetached(["kitty", "--class", "dotfiles-floating", "-e", Quickshell.env("HOME") + "/.config/hypr/scripts/systeminfo.sh"])
+                        Quickshell.execDetached(["bash", "-c", Quickshell.env("HOME") + "/.config/ml4w/scripts/ml4w-hyprsysteminfo"])
+                    }
+                }
+                ML4WMenuItem { 
+                    text: qsTr("Open .mydotfiles Folder") 
+                    onClicked: { 
+                        // Opens the dotfiles folder in the filemanager
+                        // configured in the dotfiles settings.
+                        Quickshell.execDetached(["bash", "-c", "$(cat ~/.config/ml4w/settings/filemanager) ~/.mydotfiles"])
+                    }
+                }
+                ML4WMenuItem { 
+                    text: qsTr("Open Backup Folder") 
+                    onClicked: { 
+                        // Opens the dotfiles backup folder in the filemanager
+                        // configured in the dotfiles settings.
+                        Quickshell.execDetached(["bash", "-c", "$(cat ~/.config/ml4w/settings/filemanager) ~/.mydotfiles/backups"])
                     }
                 }
                 ML4WMenuSeparator {}
                 ML4WMenuItem { 
                     text: qsTr("Exit Hyprland") 
                     onClicked: {
-                        Quickshell.execDetached(["bash", "-c", "qs ipc call power toggle"])
+                        Quickshell.execDetached(["bash", "-c", "ml4w-powermenu toggle"])
                     }
                 }
 
@@ -325,7 +374,8 @@ FloatingWindow {
 
                     Text {
                         Layout.alignment: Qt.AlignHCenter
-                        text: "Version 2.12.2"
+                        text: "Version " + root.version
+                        visible: root.version !== ""
                         font.family: Theme.fontFamily
                         font.pixelSize: 16
                         color: Theme.on_background
@@ -357,11 +407,11 @@ FloatingWindow {
 
                         // --- VISIBILITY BOUND TO GUARD PROPERTY ---
                         Button {
-                            text: "Hyprland Settings"
+                            text: "HyprMod"
                             visible: root.isHyprlandSettingsInstalled 
                             
                             onClicked: {
-                                Quickshell.execDetached(["flatpak", "run", "com.ml4w.hyprlandsettings"])
+                                Quickshell.execDetached(["hyprmod"])
                             }
                             background: Rectangle {
                                 color: "transparent"
@@ -418,25 +468,69 @@ FloatingWindow {
                         }
                     }
 
-                    Button {
+                    RowLayout {
                         Layout.alignment: Qt.AlignHCenter
                         Layout.topMargin: 15
-                        text: "All keybindings"
+                        spacing: 8
 
-                        onClicked: {
-                            Quickshell.execDetached(["bash", "-c", Quickshell.env("HOME") + "/.config/hypr/scripts/keybindings.sh"])
+                        Button {
+                            text: "Input"
+
+                            onClicked: {
+                                Quickshell.execDetached(["gnome-text-editor", Quickshell.env("HOME") + "/.config/hypr/input.lua"])
+                            }
+
+                            background: Rectangle {
+                                color: "transparent"
+                                border.color: Theme.primary
+                                radius: 10
+                            }
+                            contentItem: Text {
+                                text: parent.text
+                                font.family: Theme.fontFamily
+                                color: Theme.primary
+                                padding: 8
+                            }
                         }
 
-                        background: Rectangle {
-                            color: "transparent"
-                            border.color: Theme.primary
-                            radius: 10
+                        Button {
+                            text: "Monitors"
+
+                            onClicked: {
+                                Quickshell.execDetached(["nwg-displays"])
+                            }
+
+                            background: Rectangle {
+                                color: "transparent"
+                                border.color: Theme.primary
+                                radius: 10
+                            }
+                            contentItem: Text {
+                                text: parent.text
+                                font.family: Theme.fontFamily
+                                color: Theme.primary
+                                padding: 8
+                            }
                         }
-                        contentItem: Text {
-                            text: parent.text
-                            font.family: Theme.fontFamily
-                            color: Theme.primary
-                            padding: 8
+
+                        Button {
+                            text: "All Keybinds"
+
+                            onClicked: {
+                                Quickshell.execDetached(["bash", "-c", Quickshell.env("HOME") + "/.config/hypr/scripts/keybindings.sh"])
+                            }
+
+                            background: Rectangle {
+                                color: "transparent"
+                                border.color: Theme.primary
+                                radius: 10
+                            }
+                            contentItem: Text {
+                                text: parent.text
+                                font.family: Theme.fontFamily
+                                color: Theme.primary
+                                padding: 8
+                            }
                         }
                     }
                 }
@@ -449,6 +543,32 @@ FloatingWindow {
                 RowLayout {
                     Layout.fillWidth: true
                     Layout.margins: 10
+
+                    // --- CLOSE BUTTON (Left Side) ---
+                    Button {
+                        text: "Close"
+
+                        background: Rectangle {
+                            color: "transparent"
+                            border.color: Theme.primary
+                            border.width: 1
+                            radius: 6
+                        }
+
+                        contentItem: Text {
+                            text: parent.text
+                            font.family: Theme.fontFamily
+                            font.pixelSize: 12
+                            color: Theme.primary
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
+                            padding: 4
+                            leftPadding: 10
+                            rightPadding: 10
+                        }
+
+                        onClicked: root.visible = !root.visible
+                    }
 
                     // --- NEW TOGGLE BUTTON (Left Side) ---
                     Button {
@@ -475,7 +595,13 @@ FloatingWindow {
                         }
                         
                         onClicked: {
-                            Quickshell.execDetached(["hyprctl", "dispatch", "togglefloating"])
+                            // Hyprland with Lua dispatchers ignores the plain
+                            // "togglefloating" string, so branch on usingLua the
+                            // same way the overview and statusbar modules do.
+                            if (Hyprland.usingLua)
+                                Hyprland.dispatch("hl.dsp.window.float({ action = 'toggle' })")
+                            else
+                                Hyprland.dispatch("togglefloating")
                         }
                     }
 
